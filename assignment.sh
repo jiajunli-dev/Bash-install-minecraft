@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # TODO Write down your name and studentnumber of the author(s)
-# Markus Persson (1234567) and Rick Games (1000903)
+# Jiajun Li (1056944) and Choukri Bouchrit (1059788)
 
 # Global variables
 # TODO Define (only) the variables which require global scope
@@ -119,8 +119,9 @@ function handle_error() {
         # Make sure NOT to use empty argument values
 
     # TODO print a specific error message
+    echo "Error: $1"
     # TODO exit this function with an integer value!=0
-
+    exit 1
 }
 
 # TODO complete the implementation of this function
@@ -241,26 +242,71 @@ function setup() {
 function main() {
     # Do NOT remove next line!
     echo "function main"
-
+    
     # TODO read the arguments from $@
         # make sure NOT to use empty argument values
+    if [ $# -eq 0 ]; then
+        echo "Usage: $0 <command> <options>"
+        exit 1
+    fi
 
     # TODO use a switch statement to execute
-
-        # setup that creates the installation directory and installs all required dependencies           
-
+    case "$1" in
+        # setup that creates the installation directory and installs all required dependencies 
+        "setup")
+            setup
+            ;;
         # remove that removes installation directory and uninstalls all required dependencies (even if they were already installed)
-
+        "remove")
+            remove
+            ;;
         # minecraft with an argument that specifies the one of the following actions
             # installation of minecraft client
             # test
             # uninstall of minecraft client
-
+        "minecraft")
+            shift
+            case "$1" in
+                "--install")
+                    install_package
+                    ;;
+                "--test")
+                    test_minecraft
+                    ;;
+                "--uninstall")
+                    uninstall_minecraft
+                    ;;
+                *)
+                    handle_error "Invalid option for minecraft: $1"
+                    ;;
+            esac
+            ;;
         # spigot with an argument that specifies the one of the following actions
             # installation of both spigot server and service
             # test
             # uninstall of both spigot server and service
-
+        "spigotserver")
+            shift
+            case "$1" in
+                "--install")
+                    install_package
+                    configure_spigotserver
+                    ;;
+                "--test")
+                    test_spigotserver
+                    ;;
+                "--uninstall")
+                    uninstall_spigotserver
+                    ;;
+                *)
+                    handle_error "Invalid option for spigotserver: $1"
+                    ;;
+            esac
+            ;;
+        *)
+            handle_error "Invalid command: $1"
+            ;;
+    esac          
 }
 
 main "$@"
