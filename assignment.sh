@@ -5,7 +5,19 @@
 
 # Global variables
 # TODO Define (only) the variables which require global scope
+source dev.conf
 
+    #if [ -f "$INSTALL_DIR/Minecraft/Minecraft.deb" ]; then
+    #     echo "Minecraft.deb is already downloaded"
+    # else
+    #     sudo curl -o "$INSTALL_DIR/Minecraft/Minecraft.deb" "$MINECRAFT_URL"
+    # fi
+
+    # if [ -f "$INSTALL_DIR/BuildTools/spigot.jar" ]; then
+    #     echo "BuildTools.jar is already downloaded"
+    # else
+    #     sudo curl -o "$INSTALL_DIR/BuildTools/spigot.jar" "$BUILDTOOLS_URL"
+    # fi
 
 # INSTALL
 
@@ -15,13 +27,27 @@ function install_with_apt() {
     # Do NOT remove next line!    
     echo "function install_with_apt"
 
-    package=$1
-    # TODO 
-        # add apt command to update apt sources list
-        # add apt command to install the package
-        # add apt command to autoremove packages        
-
-    # TODO if something goes wrong then call function handle_error
+    local package=$1
+    if [ "$package" = "update" ]; then
+        sudo apt update || handle_error "Failed to update apt"
+        echo "Updated apt sources"
+        sudo apt install openjdk-17-jdk || handle_error "Failed to install openjdk-17-jdk"
+        echo "Installed openjdk-17-jdk"
+    fi
+        
+    if [ "$package" = "install dependencies" ]; then
+        for package in "gdebi" "wget" "make" "curl"; do
+            sudo apt install "$package" || handle_error "Failed to install $package"
+            echo "Installed $package"
+        done
+    fi
+        
+    if [ "$package" = "autoremove" ]; then
+        for package in "gdebi wget" "make" "curl"; do
+            sudo apt remove "$package" -y || handle_error "Failed to remove $package"
+            echo "Removed $package"  
+        done
+    fi
 }
 
 # TODO complete the implementation of this function
@@ -30,18 +56,45 @@ function install_package() {
     # Do NOT remove next line!
     echo "function install_package"
 
-    # TODO read the arguments from $@
-        # Make sure NOT to use empty argument values
-
-    # TODO make sure the following dependencies have been installed
-        # BuildTools (https://hub.spigotmc.org/jenkins/job/BuildTools/)
-        # gdebi (https://manpages.debian.org/buster/gdebi-core/gdebi.1.en.html)
-        # wget
-
-    # TODO Install required packages with APT     
-        # add apt command to update apt sources list
-        # add apt command to install the package        
+    local package=$1
+    if [ ! -f "$INSTALL_DIR/setup_log.txt" ]; then
+        handle_error "Setup function has not been executed. Please run setup first"
+    fi
     
+    case "$package" in
+        "MINECRAFT")  
+            local minecraft_dir="${INSTALL_DIR}/minecraft"
+            mkdir "$minecraft_dir"
+            
+            if [ -f "$minecraft_dir/minecraft.deb" ]; then
+                echo "Minecraft.deb is already downloaded"
+            else 
+                local minecraft_url="$MINECRAFT_URL"
+                local minecraft_file="$minecraft_dir/minecraft.deb"
+                sudo curl -o "$minecraft_file" "$minecraft_url" || handle_error "Failed to download Minecraft"
+            fi
+
+            sudo gdebi -n "$INSTALL_DIR/minecraft/minecraft.deb" || handle_error "Failed to install Minecraft"
+            ;;
+        "SPIGOTSERVER")          
+            local spigot_dir="${INSTALL_DIR}/spigotserver"
+            mkdir "$spigot_dir"
+
+            if [ -f "$spigot_dir/spigot.jar" ]; then
+                echo "spigot.jar is already downloaded"
+            else
+                local spigot_url="$BUILDTOOLS_URL"
+                local spigot_file="$spigot_dir/spigot.jar"
+                sudo curl -o "$spigot_file" "$spigot_url" || handle_error "Failed to download Spigot"
+            fi
+
+            cp -n spigotstart.sh "$INSTALL_DIR/spigotserver/spigotstart.sh" || handle_error "Failed to copy spigotstart.sh"
+            sudo chmod +x "$INSTALL_DIR/spigotserver/spigotstart.sh" || handle_error "Failed to provide execute permission"
+
+            bash "$INSTALL_DIR/spigotserver/spigotstart.sh" || handle_error "Failed to install Spigot"
+            ;;
+    esac
+
     # TODO General
         # the URLS needed to download installation files must be read automatically from dev.conf 
         # the logic for downloading from a URL and installing the application with the installationfile with the proper installation tool
@@ -234,9 +287,19 @@ function test_spigotserver() {
 function setup() {
     # Do NOT remove next line!
     echo "function setup"    
+    
+    if [ ! -d "$INSTALL_DIR" ]; then
+        echo "Creating directorie: $INSTALL_DIR"
+        mkdir -p "$INSTALL_DIR" || handle_error "Failed to create directorie: $INSTALL_DIR"
+    else
+        echo "$INSTALL_DIR directory already exists"
+    fi
 
-    # TODO Install required packages with APT     
- 
+    local log_file="setup_log.txt"
+    echo "$(date): Setup function executed" >> "$INSTALL_DIR/$log_file"
+
+    install_with_apt "update"
+    install_with_apt "install dependencies"
 }
 
 function main() {
@@ -268,7 +331,7 @@ function main() {
             shift
             case "$1" in
                 "--install")
-                    install_package
+                    install_package "MINECRAFT"
                     ;;
                 "--test")
                     test_minecraft
@@ -289,7 +352,7 @@ function main() {
             shift
             case "$1" in
                 "--install")
-                    install_package
+                    install_package "SPIGOTSERVER"
                     configure_spigotserver
                     ;;
                 "--test")
