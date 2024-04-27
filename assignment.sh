@@ -29,10 +29,10 @@ function install_with_apt() {
 
     local package=$1
     if [ "$package" = "update" ]; then
-        sudo apt update || handle_error "Failed to update apt"
-        echo "Updated apt sources"
         sudo apt install openjdk-17-jdk || handle_error "Failed to install openjdk-17-jdk"
         echo "Installed openjdk-17-jdk"
+        sudo apt update || handle_error "Failed to update apt"
+        echo "Updated apt sources"
     fi
         
     if [ "$package" = "install dependencies" ]; then
@@ -44,7 +44,7 @@ function install_with_apt() {
         
     if [ "$package" = "autoremove" ]; then
         for package in "gdebi wget" "make" "curl"; do
-            sudo apt remove "$package" -y || handle_error "Failed to remove $package"
+            sudo apt remove "$package" || handle_error "Failed to remove $package"
             echo "Removed $package"  
         done
     fi
