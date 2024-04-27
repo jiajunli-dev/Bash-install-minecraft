@@ -29,10 +29,10 @@ function install_with_apt() {
 
     local package=$1
     if [ "$package" = "update" ]; then
-        sudo apt install openjdk-17-jdk -y || handle_error "Failed to install openjdk-17-jdk"
-        echo "Installed openjdk-17-jdk"
         sudo apt update || handle_error "Failed to update apt"
         echo "Updated apt sources"
+        sudo apt install openjdk-17-jdk -y || handle_error "Failed to install openjdk-17-jdk"
+        echo "Installed openjdk-17-jdk"
     fi
         
     if [ "$package" = "install dependencies" ]; then
