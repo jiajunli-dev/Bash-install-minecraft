@@ -68,6 +68,7 @@ function install_package() {
             
             if [ -f "$minecraft_dir/minecraft.deb" ]; then
                 echo "Minecraft.deb is already downloaded"
+                exit 1
             else 
                 local minecraft_url="$MINECRAFT_URL"
                 local minecraft_file="$minecraft_dir/minecraft.deb"
@@ -82,6 +83,7 @@ function install_package() {
 
             if [ -f "$spigot_dir/spigot.jar" ]; then
                 echo "spigot.jar is already downloaded"
+                exit 1
             else
                 local spigot_url="$BUILDTOOLS_URL"
                 local spigot_file="$spigot_dir/BuildTools.jar"
@@ -94,31 +96,10 @@ function install_package() {
             cd "$INSTALL_DIR/server" || handle_error "Failed to change directory to spigotserver"
             sudo java -jar BuildTools.jar || handle_error "Failed to build spigotserver"
             mv spigot-*.jar spigot.jar || handle_error "Failed to move spigot.jar"
+
+            java -jar /tmp/apps/server/spigot.jar || handle_error "Failed to build spigotserver"
             ;;
     esac
-
-    # TODO General
-        # the URLS needed to download installation files must be read automatically from dev.conf 
-        # the logic for downloading from a URL and installing the application with the installationfile with the proper installation tool
-        # specific actions that need to be taken for a specific application during this process should be handled in a separate if-else or switch statement
-        # every intermediate steps need to be handeld carefully. error handeling should be dealt with using handle_error() and/or rolleback()
-        # if a file is downloaded but canNOT be installed, a rollback is needed to be able to start from scratch
-        # create a specific installation folder for the current package
-        # make sure to provide the user with sufficient permissions to this folder
-        # make sure to handle every intermediate mistake and rollback if something goes wrong like permission erros and unreachble URL etc.
-
-    # TODO application specific logic
-    # based on the name of the application additional steps might be needed
-
-        # TODO SPIGOTSERVER 
-        # Copy spigotstart.sh to ${HOME}/apps/spigotserver and provide the user with execute permission
-        # spigotserver will be stored into ${HOME}/apps/spigotserver
-        
-        # TODO MINECRAFT 
-        # Download minecraft.deb and install it with gdebi
-        
-    # TODO if something goes wrong then call function handle_error
-
 }
 
 
@@ -130,22 +111,20 @@ function configure_spigotserver() {
     # Do NOT remove next line!
     echo "function configure_spigotserver"
 
-    # TODO Configure Firewall
-        # make sure ufw has been installed    
+    sudo apt install ufw -y || handle_error "Failed to install ufw"  
 
-    # TODO allow SSH port with ufw allow OpenSSH
-        # use ufw to allow the port that is specified in dev.conf for the Spigot server to accept connections
-        # make sure ufw has been enabled
+    sudo ufw default deny incoming
+    sudo ufw default allow outgoing
 
-    # TODO configure spigotserver to run creative gamemode instead of survival 
-        # this can be done by running the sed command on the (automatically generated) file server.properties 
-        # (https://minecraft.fandom.com/wiki/Server.properties)
-        # with the argument 's/\(gamemode=\)survival/\1creative/'
+    sudo ufw allow ssh || handle_error "Failed to allow SSH port with ufw"
+    sudo ufw enable || handle_error "Failed to enable ufw"
+    
+    sudo ufw allow "$SPIGOTSERVER_PORT" || handle_error "Failed to allow Spigot server port $spigot_port with ufw"
 
-    # TODO restart the spigot service
+    local server_properties="$INSTALL_DIR/server/server.properties"
+    sudo sed -i 's/\(gamemode=\)survival/\1creative/' "$server_properties" || handle_error "Failed to configure gamemode in server.properties"
 
-    # TODO if something goes wrong then call function handle_error
-
+    sudo systemctl restart spigot || handle_error "Failed to restart Spigot service"
 }
 
 # TODO complete the implementation of this function
@@ -154,13 +133,9 @@ function create_spigotservice() {
     # Do NOT remove next line!
     echo "function create_spigotservice"
     
-    # TODO copy spigot.service to /etc/systemd/system/spigot.service
-
-    # TODO reload the service daemon (systemctl daemon-reload)
-    # TODO enable the service using systemctl
-
-    # TODO if something goes wrong then call function handle_error
-
+    sudo cp spigot.service /etc/systemd/system/spigot.service || handle_error "Failed to copy spigot.service"
+    sudo systemctl daemon-reload || handle_error "Failed to reload systemd"
+    sudo systemctl enable spigot.service || handle_error "Failed to enable spigot.service"
 }
 
 # ERROR HANDLING
@@ -181,7 +156,7 @@ function handle_error() {
 
 # TODO complete the implementation of this function
 # Make sure to use sudo only if needed
-function rollback_spigotserver() {
+function rollback_minecraft() {
     # Do NOT remove next line!
     echo "function rollback_minecraft"
 
@@ -355,7 +330,6 @@ function main() {
             case "$1" in
                 "--install")
                     install_package "SPIGOTSERVER"
-                    configure_spigotserver
                     ;;
                 "--test")
                     test_spigotserver
@@ -374,4 +348,6 @@ function main() {
     esac          
 }
 
-main "$@"
+create_spigotservice
+
+#main "$@"
