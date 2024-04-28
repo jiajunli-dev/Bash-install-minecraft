@@ -184,10 +184,40 @@ function rollback_spigotserver {
 # Make sure to use sudo only if needed
 function uninstall_minecraft {
     # Do NOT remove next line!
+    #Comment:
+    #Check if the directory exists, and if so: delete it completely.
+    #Handles cases such as:
+    #-Directory doesn't exist
+    #Removing directory and files wasn't done right
     echo "function uninstall_minecraft"  
+    #deleting folder
+    if [ -d "$INSTALL_DIR/minecraft" ]
+    then
+        #deleting folder
+        echo "uninstalling minecraft..."
+        rm -rf "$INSTALL_DIR/minecraft"
+        if [ -d "$INSTALL_DIR/minecraft" ]
+        then
+            handle_error "Deleting minecraft folder has failed"
+        else
+            echo "Minecraft folder has been uninstalled"
+        fi
+        
+    else
+        echo "Directory $INSTALL_DIR/minecraft doesn't exist!"
+    fi
 
-    # TODO remove the directory containing minecraft 
+    launcherdir=$(find / -type d -name ".minecraft" 2>/dev/null)
+     #deleting minecraft (not using minecraft-launcher --clean, it doesn't work)
+    rm -vr $launcherdir
 
+    #the following line is used to delete the launcher (again, because --clean doesn't work)
+    if ! sudo apt remove minecraft-launcher
+    then
+        handle_error "deleting minecraft has failed"
+    else
+        echo "minecraft has succesfully been deleted"
+    fi
     # TODO if something goes wrong then call function handle_error
 
 }
