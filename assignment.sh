@@ -77,21 +77,23 @@ function install_package() {
             sudo gdebi -n "$INSTALL_DIR/minecraft/minecraft.deb" || handle_error "Failed to install Minecraft"
             ;;
         "SPIGOTSERVER")          
-            local spigot_dir="${INSTALL_DIR}/spigotserver"
+            local spigot_dir="${INSTALL_DIR}/server"
             mkdir "$spigot_dir"
 
             if [ -f "$spigot_dir/spigot.jar" ]; then
                 echo "spigot.jar is already downloaded"
             else
                 local spigot_url="$BUILDTOOLS_URL"
-                local spigot_file="$spigot_dir/spigot.jar"
+                local spigot_file="$spigot_dir/BuildTools.jar"
                 sudo curl -o "$spigot_file" "$spigot_url" || handle_error "Failed to download Spigot"
             fi
 
-            cp -n spigotstart.sh "$INSTALL_DIR/spigotserver/spigotstart.sh" || handle_error "Failed to copy spigotstart.sh"
-            sudo chmod +x "$INSTALL_DIR/spigotserver/spigotstart.sh" || handle_error "Failed to provide execute permission"
+            cp -n spigotstart.sh "$INSTALL_DIR/server/spigotstart.sh" || handle_error "Failed to copy spigotstart.sh"
+            sudo chmod +x "$INSTALL_DIR/server/spigotstart.sh" || handle_error "Failed to provide execute permission"
 
-            bash "$INSTALL_DIR/spigotserver/spigotstart.sh" || handle_error "Failed to install Spigot"
+            cd "$INSTALL_DIR/server" || handle_error "Failed to change directory to spigotserver"
+            sudo java -jar BuildTools.jar || handle_error "Failed to build spigotserver"
+            mv spigot-*.jar spigot.jar || handle_error "Failed to move spigot.jar"
             ;;
     esac
 
