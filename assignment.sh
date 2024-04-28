@@ -37,14 +37,14 @@ function install_with_apt() {
         
     if [ "$package" = "install dependencies" ]; then
         for package in "gdebi" "wget" "make" "curl"; do
-            sudo apt install "$package" || handle_error "Failed to install $package"
+            sudo apt install "$package" -y || handle_error "Failed to install $package"
             echo "Installed $package"
         done
     fi
         
     if [ "$package" = "autoremove" ]; then
         for package in "gdebi wget" "make" "curl"; do
-            sudo apt remove "$package" || handle_error "Failed to remove $package"
+            sudo apt remove "$package" -y || handle_error "Failed to remove $package"
             echo "Removed $package"  
         done
     fi
@@ -97,7 +97,10 @@ function install_package() {
             sudo java -jar BuildTools.jar || handle_error "Failed to build spigotserver"
             mv spigot-*.jar spigot.jar || handle_error "Failed to move spigot.jar"
 
-            java -jar /tmp/apps/server/spigot.jar || handle_error "Failed to build spigotserver"
+            java -jar /tmp/apps/server/spigot.jar || handle_error "Failed to first start spigotserver"
+            
+            echo "eula=true" > /tmp/apps/server/eula.txt || handle_error "Failed to create eula.txt"
+            sudo cp /tmp/apps/server/eula.txt / || handle_error "Failed to copy eula.txt"
             ;;
     esac
 }
@@ -347,7 +350,6 @@ function main() {
             ;;
     esac          
 }
-
 create_spigotservice
 
 #main "$@"
