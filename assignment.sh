@@ -7,18 +7,6 @@
 # TODO Define (only) the variables which require global scope
 source dev.conf
 
-    #if [ -f "$INSTALL_DIR/Minecraft/Minecraft.deb" ]; then
-    #     echo "Minecraft.deb is already downloaded"
-    # else
-    #     sudo curl -o "$INSTALL_DIR/Minecraft/Minecraft.deb" "$MINECRAFT_URL"
-    # fi
-
-    # if [ -f "$INSTALL_DIR/BuildTools/spigot.jar" ]; then
-    #     echo "BuildTools.jar is already downloaded"
-    # else
-    #     sudo curl -o "$INSTALL_DIR/BuildTools/spigot.jar" "$BUILDTOOLS_URL"
-    # fi
-
 # INSTALL
 
 # TODO complete the implementation of this function
@@ -97,10 +85,7 @@ function install_package() {
             sudo java -jar BuildTools.jar || handle_error "Failed to build spigotserver"
             mv spigot-*.jar spigot.jar || handle_error "Failed to move spigot.jar"
 
-            java -jar /tmp/apps/server/spigot.jar || handle_error "Failed to first start spigotserver"
-            
-            echo "eula=true" > /tmp/apps/server/eula.txt || handle_error "Failed to create eula.txt"
-            sudo cp /tmp/apps/server/eula.txt / || handle_error "Failed to copy eula.txt"
+            java -jar /tmp/apps/server/spigot.jar || handle_error "Failed to first start spigotserver"          
             ;;
     esac
 }
@@ -119,6 +104,8 @@ function configure_spigotserver() {
     sudo ufw default deny incoming
     sudo ufw default allow outgoing
 
+    cd /etc/default/ufw
+
     sudo ufw allow ssh || handle_error "Failed to allow SSH port with ufw"
     sudo ufw enable || handle_error "Failed to enable ufw"
     
@@ -127,7 +114,7 @@ function configure_spigotserver() {
     local server_properties="$INSTALL_DIR/server/server.properties"
     sudo sed -i 's/\(gamemode=\)survival/\1creative/' "$server_properties" || handle_error "Failed to configure gamemode in server.properties"
 
-    sudo systemctl restart spigot || handle_error "Failed to restart Spigot service"
+    sudo systemctl restart spigot.service || handle_error "Failed to restart Spigot service"
 }
 
 # TODO complete the implementation of this function
@@ -333,6 +320,7 @@ function main() {
             case "$1" in
                 "--install")
                     install_package "SPIGOTSERVER"
+                    create_spigotservice
                     ;;
                 "--test")
                     test_spigotserver
@@ -350,6 +338,6 @@ function main() {
             ;;
     esac          
 }
-create_spigotservice
 
-#main "$@"
+
+main "$@"
