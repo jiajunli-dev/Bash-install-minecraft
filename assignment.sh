@@ -271,7 +271,7 @@ function uninstall_spigotserver {
         sudo rm -rf "$INSTALL_DIR/server" || handle_error "Failed to remove server directory"
         
         uninstall_spigotservice || handle_error "Failed to uninstall spigot service"
-        echo "Spigot server and spitot service have been removed successfully"
+        echo "Spigot server and spigot service have been removed successfully"
     else
         echo "Directory $INSTALL_DIR/server doesn't exist"
     fi 
