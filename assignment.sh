@@ -273,7 +273,7 @@ function uninstall_minecraft {
         fi
         
     else
-        echo "Directory $INSTALL_DIR/minecraft doesn't exist!"
+        handle_error "Minecraft folder doesn't exist"
     fi
 
     launcherdir=$(find / -type d -name ".minecraft" 2>/dev/null)
@@ -304,7 +304,7 @@ function uninstall_spigotserver {
         uninstall_spigotservice || handle_error "Failed to uninstall spigot service"
         echo "Spigot server and spigot service have been removed successfully"
     else
-        echo "Directory $INSTALL_DIR/server doesn't exist"
+        handle_error "Server directory does not exist"
     fi 
 }
 
@@ -334,10 +334,17 @@ function remove() {
     # Do NOT remove next line!
     echo "function remove"
 
-    # TODO Remove all packages and dependencies
+    uninstall_minecraft
+    uninstall_spigotserver
 
-    # TODO if something goes wrong then call function handle_error
+    if [ -d "$INSTALL_DIR" ]; then
+        sudo rm -rf "$INSTALL_DIR" || handle_error "Failed to remove installation directory"
+        echo "Installation directory has been removed"
+    else
+        echo "Installation directory does not exist"
+    fi
 
+    install_with_apt "autoremove"
 }
 
 
