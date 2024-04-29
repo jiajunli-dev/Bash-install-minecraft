@@ -200,7 +200,22 @@ function handle_error() {
 function rollback_minecraft() {
     # Do NOT remove next line!
     echo "function rollback_minecraft"
+    #First, we check if the folder was made
+    #if this is the case, we remove it with all it's contents
+    if [ -d "$INSTALL_DIR/minecraft" ]
+    then
+        rm -rf "$INSTALL_DIR/minecraft"
+    else
+        handle_error "There's nothing to rollback"
+    fi
 
+    #Here we check if the removal was actually done
+    #If this is not the case, we let the user know about it
+    if [ -d "$INSTALL_DIR/minecraft" ]
+    then
+        handle_error "rollback minecraft was unsuccessful"
+    fi
+    echo "rollback minecraft was successful"
     # TODO if something goes wrong then call function handle_error
 
 }
@@ -213,6 +228,22 @@ function rollback_spigotserver {
 
     # TODO if something goes wrong then call function handle_error
 
+    #First, we check if the folder was made
+    #if this is the case, we remove it with all it's contents
+    if [ -d "$INSTALL_DIR/server" ]
+    then
+        rm -rf "$INSTALL_DIR/server"
+    else
+        handle_error "There's nothing to rollback"
+    fi
+
+    #Here we check if the removal was actually done
+    #If this is not the case, we let the user know about it
+    if [ -d "$INSTALL_DIR/server" ]
+    then
+        handle_error "rollback server was unsuccessful"
+    fi
+    echo "rollback server was successful"
 }
 
 
@@ -325,6 +356,36 @@ function test_minecraft() {
     # TODO Stop minecraft after testing
         # use the kill signal only if minecraft canNOT be stopped normally
 
+    #starting minecraft in the background (otherwise script won't continue)
+    minecraft-launcher &
+
+    #use pgrep to find the oldest (-o) process related to minecraft (minecraft-launcher)
+    minecraft_id=$(pgrep -o minecraft)
+    echo $minecraft_id
+    sleep 10  #wait a bit for minecraft to finish launching and see if it keeps running
+
+    #check if it is still running
+    
+    if pgrep minecraft > /dev/null
+    then
+        echo "Minecraft application is running."
+        kill $minecraft_id #send termination signal
+    else
+        handle_error "Minecraft application failed to start."
+    fi
+
+    #provide some feedback for the user, the purpose of the sleep:
+    #-give the process enough time to terminate. if it is still running send a kill signal
+    echo "shutting down Minecraft..."
+    sleep 10
+    if pgrep minecraft > /dev/null 
+    then
+        echo "Minecraft application is still running after sending termination signal."
+        echo "Now forcefully shutting down Minecraft"
+        kill -9 $minecraft_id
+    else
+        echo "Minecraft application terminated successfully."
+    fi
 }
 
 function test_spigotserver() {
