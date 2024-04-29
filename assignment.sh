@@ -15,6 +15,7 @@ function install_with_apt() {
     # Do NOT remove next line!    
     echo "function install_with_apt"
 
+    # Update apt sources and install openjdk-17-jdk
     local package=$1
     if [ "$package" = "update" ]; then
         sudo apt update || handle_error "Failed to update apt"
@@ -22,14 +23,16 @@ function install_with_apt() {
         sudo apt install openjdk-17-jdk -y || handle_error "Failed to install openjdk-17-jdk"
         echo "Installed openjdk-17-jdk"
     fi
-        
+    
+    # Install required dependencies
     if [ "$package" = "install dependencies" ]; then
         for package in "gdebi" "wget" "make" "curl"; do
             sudo apt install "$package" -y || handle_error "Failed to install $package"
             echo "Installed $package"
         done
     fi
-        
+    
+    # Remove installed dependencies
     if [ "$package" = "autoremove" ]; then
         for package in "gdebi wget" "make" "curl"; do
             sudo apt remove "$package" -y || handle_error "Failed to remove $package"
@@ -43,17 +46,26 @@ function install_with_apt() {
 function install_package() {
     # Do NOT remove next line!
     echo "function install_package"
-
+    
+    # Check if the setup function has been executed
     local package=$1
     if [ ! -f "$INSTALL_DIR/setup_log.txt" ]; then
         handle_error "Setup function has not been executed. Please run setup first"
     fi
     
+    # Install Minecraft or Spigotserver using switch statement
     case "$package" in
-        "MINECRAFT")  
+        "MINECRAFT")
+            # Check if the directory exists, if not create it
             local minecraft_dir="${INSTALL_DIR}/minecraft"
-            mkdir "$minecraft_dir"
+            if [ -d "$minecraft_dir" ]; then
+                echo "Directory exists."
+            else
+                echo "Directory does not exist creating: $minecraft_dir."
+                mkdir "$minecraft_dir"
+            fi
             
+            # Check if the file exists, if not download it
             if [ -f "$minecraft_dir/minecraft.deb" ]; then
                 echo "Minecraft.deb is already downloaded"
                 exit 1
@@ -63,12 +75,20 @@ function install_package() {
                 sudo curl -o "$minecraft_file" "$minecraft_url" || handle_error "Failed to download Minecraft"
             fi
 
+            # Install Minecraft
             sudo gdebi -n "$INSTALL_DIR/minecraft/minecraft.deb" || handle_error "Failed to install Minecraft"
             ;;
         "SPIGOTSERVER")          
+            # Check if the directory exists, if not create it
             local spigot_dir="${INSTALL_DIR}/server"
-            mkdir "$spigot_dir"
+            if [ -d "/path/to/your/directory" ]; then
+                echo "Directory exists."
+            else
+                echo "Directory does not exist creating: $spigot_dir."
+                mkdir "$spigot_dir"
+            fi
 
+            # Check if the file exists, if not download it
             if [ -f "$spigot_dir/spigot.jar" ]; then
                 echo "spigot.jar is already downloaded"
                 exit 1
@@ -78,13 +98,16 @@ function install_package() {
                 sudo curl -o "$spigot_file" "$spigot_url" || handle_error "Failed to download Spigot"
             fi
 
+            # Copy spigotstart.sh to the server directory and provide execute permission
             cp -n spigotstart.sh "$INSTALL_DIR/server/spigotstart.sh" || handle_error "Failed to copy spigotstart.sh"
             sudo chmod +x "$INSTALL_DIR/server/spigotstart.sh" || handle_error "Failed to provide execute permission"
 
+            # Build spigotserver
             cd "$INSTALL_DIR/server" || handle_error "Failed to change directory to spigotserver"
             sudo java -jar BuildTools.jar || handle_error "Failed to build spigotserver"
             mv spigot-*.jar spigot.jar || handle_error "Failed to move spigot.jar"
 
+            # Run it for the first time and set eula to true
             java -jar /tmp/apps/server/spigot.jar || handle_error "Failed to first start spigotserver"
             echo "eula=true" > eula.txt          
             ;;
@@ -100,21 +123,28 @@ function configure_spigotserver() {
     # Do NOT remove next line!
     echo "function configure_spigotserver"
 
+    # Set server_port to 25565
     local server_port=25565
 
+    # Install ufw
     sudo apt install ufw -y || handle_error "Failed to install ufw"  
 
+    # Configure ufw to use the default deny / allow policy
     sudo ufw default deny incoming || handle_error "Failed to deny incoming with ufw"
     sudo ufw default allow outgoing || handle_error "Failed to allow outgoing with ufw"
 
+    # Allow ssh and enable ufw
     sudo ufw allow ssh || handle_error "Failed to allow SSH port with ufw"
     sudo ufw enable || handle_error "Failed to enable ufw"
     
+    # Allow the Spigot server port
     sudo ufw allow "$server_port" || handle_error "Failed to allow Spigot server port $server_port with ufw"
 
+    # Set gamemode to creative in server.properties
     local server_properties="$INSTALL_DIR/server/server.properties"
     sudo sed -i 's/\(gamemode=\)survival/\1creative/' "$server_properties" || handle_error "Failed to configure gamemode in server.properties"
 
+    # Restart the Spigot service
     sudo systemctl restart spigot.service || handle_error "Failed to restart Spigot service"
 }
 
@@ -124,6 +154,7 @@ function create_spigotservice() {
     # Do NOT remove next line!
     echo "function create_spigotservice"
     
+    # Check if the spigot.service file exists
     local path=$(sudo find / -type f -name spigot.service 2>/dev/null)
     if [ -f "/etc/systemd/system/spigot.service" ]; then
         echo "spigot.service exist."
@@ -133,6 +164,7 @@ function create_spigotservice() {
         cd $(dirname $path) || handle_error "Failed to change directory to $path"
     fi
 
+    # Add WorkingDirectory to spigot.service to prevent root folder getting filled with server files
     local file="spigot.service"
     if grep -q "^WorkingDirectory=" "$file"; then
         echo "WorkingDirectory is already defined in $file"
@@ -141,9 +173,10 @@ function create_spigotservice() {
         echo "WorkingDirectory added to $file"
     fi
 
+    # Copy spigot.service to /etc/systemd/system and enable the service
     sudo cp spigot.service /etc/systemd/system/spigot.service || handle_error "Failed to copy spigot.service"
-    sudo systemctl daemon-reload || handle_error "Failed to reload systemd"
     sudo systemctl enable spigot.service || handle_error "Failed to enable spigot.service"
+    sudo systemctl daemon-reload || handle_error "Failed to reload systemd"
 
     echo "Spigot service has been created"
 }
@@ -155,12 +188,10 @@ function handle_error() {
     # Do NOT remove next line!
     echo "function handle_error"
 
-    # TODO read the arguments from $@
-        # Make sure NOT to use empty argument values
-
-    # TODO print a specific error message
+    # Print a specific error message
     echo "Error: $1"
-    # TODO exit this function with an integer value!=0
+    
+    # Exit this function with an integer value!=0
     exit 1
 }
 
@@ -235,12 +266,15 @@ function uninstall_spigotserver {
     # Do NOT remove next line!
     echo "uninstall_spigotserver"  
     
-    # TODO remove the directory containing spigotserver 
-
-    # TODO create a service by calling the function create_spigotservice
-
-    # TODO if something goes wrong then call function handle_error
-
+    # TODO remove the directory containing spigotserver
+    if [ -d "$INSTALL_DIR/server" ]; then
+        sudo rm -rf "$INSTALL_DIR/server" || handle_error "Failed to remove server directory"
+        
+        uninstall_spigotservice || handle_error "Failed to uninstall spigot service"
+        echo "Spigot server and spitot service have been removed successfully"
+    else
+        echo "Directory $INSTALL_DIR/server doesn't exist"
+    fi 
 }
 
 # TODO complete the implementation of this function
@@ -249,11 +283,18 @@ function uninstall_spigotservice {
     # Do NOT remove next line!
     echo "uninstall_spigotservice"
 
-    # TODO disable the spigotservice with systemctl disable
-    # TODO delete /etc/systemd/system/spigot.service
+    # Check if the spigot.service file exists
+    if [ -f "/etc/systemd/system/spigot.service" ]; then
+        # Stop and disable the spigot service and remove the service file from /etc/systemd/system and reload systemd
+        sudo systemctl stop spigot.service || handle_error "Failed to stop spigot.service"
+        sudo systemctl disable spigot.service || handle_error "Failed to disable spigot.service"
+        sudo rm /etc/systemd/system/spigot.service || handle_error "Failed to remove spigot.service"
+        sudo systemctl daemon-reload || handle_error "Failed to reload systemd"
 
-    # TODO if something goes wrong then call function handle_error
-    
+        echo "Spigot service has been uninstalled"
+    else
+        echo "File does not exist."
+    fi
 }
 
 # TODO complete the implementation of this function
@@ -290,32 +331,40 @@ function test_spigotserver() {
     # Do NOT remove next line!
     echo "function test_spigotserver"    
 
+    # Install netcat as a tool to check if the server is running
     sudo apt install netcat -y || handle_error "Failed to install netcat"
 
-    # Start spigotserver, wait for 30 seconds
+    # Start spigotserver, wait for 30 seconds to let the server load everything
     sudo systemctl start spigot.service || handle_error "Failed to start minecraft"
-    sleep 15
+    sleep 60
 
-    # Configure spigotserver and restart the server, wait 30 seconds
+    # Configure spigotserver and restart the server, wait for 45 seconds to let the server load everything
     configure_spigotserver
-    sleep 35
+    sleep 90
 
+    # Check if the server is running on port 25565 using netcat
     nc -zv -4 localhost 25565
 
+    # Stop spigotserver
     sudo systemctl stop spigot.service || handle_error "Failed to stop spigot.service"
 
+    # Check if the server is stopped correctly, If not kill the server using pkill
     if ! sudo systemctl is-active --quiet spigot.service; then
         echo "Spigot server stopped successfully"
     else
          sudo pkill -f 'java -jar /tmp/apps/server/spigot.jar' || handle_error "Failed to kill spigotserver"
          echo "Spigot server could not be stopped normally and was killed using pkill"  
     fi
+
+    # Remove netcat
+    sudo apt remove netcat -y || handle_error "Failed to remove netcat"
 }
 
 function setup() {
     # Do NOT remove next line!
     echo "function setup"    
     
+    # Check if the installation directory exists, if not create it
     if [ ! -d "$INSTALL_DIR" ]; then
         echo "Creating directorie: $INSTALL_DIR"
         mkdir -p "$INSTALL_DIR" || handle_error "Failed to create directorie: $INSTALL_DIR"
@@ -323,9 +372,11 @@ function setup() {
         echo "$INSTALL_DIR directory already exists"
     fi
 
+    # Create a log file in the installation directory
     local log_file="setup_log.txt"
     echo "$(date): Setup function executed" >> "$INSTALL_DIR/$log_file"
 
+    # Update apt sources and install required dependencies
     install_with_apt "update"
     install_with_apt "install dependencies"
 }
