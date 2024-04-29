@@ -423,11 +423,11 @@ function test_spigotserver() {
     # Install netcat as a tool to check if the server is running
     sudo apt install netcat -y || handle_error "Failed to install netcat"
 
-    # Start spigotserver, wait for 30 seconds to let the server load everything
+    # Start spigotserver, wait for 60 seconds to let the server load everything
     sudo systemctl start spigot.service || handle_error "Failed to start minecraft"
     sleep 60
 
-    # Configure spigotserver and restart the server, wait for 45 seconds to let the server load everything
+    # Configure spigotserver and restart the server, wait for 90 seconds to let the server load everything
     configure_spigotserver
     sleep 90
 
