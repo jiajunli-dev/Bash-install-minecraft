@@ -3,7 +3,6 @@ Description=SpigotMC
 After=network.target
 
 [Service]
-WorkingDirectory=/tmp/apps/server
 ExecStart=bash /tmp/apps/server/spigotstart.sh
 Type=simple
 

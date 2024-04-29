@@ -85,7 +85,8 @@ function install_package() {
             sudo java -jar BuildTools.jar || handle_error "Failed to build spigotserver"
             mv spigot-*.jar spigot.jar || handle_error "Failed to move spigot.jar"
 
-            java -jar /tmp/apps/server/spigot.jar || handle_error "Failed to first start spigotserver"          
+            java -jar /tmp/apps/server/spigot.jar || handle_error "Failed to first start spigotserver"
+            echo "eula=true" > eula.txt          
             ;;
     esac
 }
@@ -99,17 +100,17 @@ function configure_spigotserver() {
     # Do NOT remove next line!
     echo "function configure_spigotserver"
 
+    local server_port=25565
+
     sudo apt install ufw -y || handle_error "Failed to install ufw"  
 
-    sudo ufw default deny incoming
-    sudo ufw default allow outgoing
-
-    cd /etc/default/ufw
+    sudo ufw default deny incoming || handle_error "Failed to deny incoming with ufw"
+    sudo ufw default allow outgoing || handle_error "Failed to allow outgoing with ufw"
 
     sudo ufw allow ssh || handle_error "Failed to allow SSH port with ufw"
     sudo ufw enable || handle_error "Failed to enable ufw"
     
-    sudo ufw allow "$SPIGOTSERVER_PORT" || handle_error "Failed to allow Spigot server port $spigot_port with ufw"
+    sudo ufw allow "$server_port" || handle_error "Failed to allow Spigot server port $server_port with ufw"
 
     local server_properties="$INSTALL_DIR/server/server.properties"
     sudo sed -i 's/\(gamemode=\)survival/\1creative/' "$server_properties" || handle_error "Failed to configure gamemode in server.properties"
@@ -123,9 +124,28 @@ function create_spigotservice() {
     # Do NOT remove next line!
     echo "function create_spigotservice"
     
+    local path=$(sudo find / -type f -name spigot.service 2>/dev/null)
+    if [ -f "/etc/systemd/system/spigot.service" ]; then
+        echo "spigot.service exist."
+        exit 1
+    else    
+        cd /
+        cd $(dirname $path) || handle_error "Failed to change directory to $path"
+    fi
+
+    local file="spigot.service"
+    if grep -q "^WorkingDirectory=" "$file"; then
+        echo "WorkingDirectory is already defined in $file"
+    else
+        sed -i '/^\[Service\]/a WorkingDirectory=/tmp/apps/server' "$file"
+        echo "WorkingDirectory added to $file"
+    fi
+
     sudo cp spigot.service /etc/systemd/system/spigot.service || handle_error "Failed to copy spigot.service"
     sudo systemctl daemon-reload || handle_error "Failed to reload systemd"
     sudo systemctl enable spigot.service || handle_error "Failed to enable spigot.service"
+
+    echo "Spigot service has been created"
 }
 
 # ERROR HANDLING
@@ -256,7 +276,7 @@ function test_minecraft() {
     # Do NOT remove next line!
     echo "function test_minecraft"
 
-    # TODO Start minecraft 
+    # TODO Start minecraft
 
     # TODO Check if minecraft is working correctly
         # e.g. by checking the logfile
@@ -270,15 +290,26 @@ function test_spigotserver() {
     # Do NOT remove next line!
     echo "function test_spigotserver"    
 
-    # TODO Start the spigotserver
+    sudo apt install netcat -y || handle_error "Failed to install netcat"
 
-    # TODO Check if spigotserver is working correctly
-        # e.g. by checking if the API responds
-        # if you need curl or aNOTher tool, you have to install it first
+    # Start spigotserver, wait for 30 seconds
+    sudo systemctl start spigot.service || handle_error "Failed to start minecraft"
+    sleep 15
 
-    # TODO Stop the spigotserver after testing
-        # use the kill signal only if the spigotserver canNOT be stopped normally
+    # Configure spigotserver and restart the server, wait 30 seconds
+    configure_spigotserver
+    sleep 35
 
+    nc -zv -4 localhost 25565
+
+    sudo systemctl stop spigot.service || handle_error "Failed to stop spigot.service"
+
+    if ! sudo systemctl is-active --quiet spigot.service; then
+        echo "Spigot server stopped successfully"
+    else
+         sudo pkill -f 'java -jar /tmp/apps/server/spigot.jar' || handle_error "Failed to kill spigotserver"
+         echo "Spigot server could not be stopped normally and was killed using pkill"  
+    fi
 }
 
 function setup() {
@@ -368,6 +399,5 @@ function main() {
             ;;
     esac          
 }
-
 
 main "$@"
