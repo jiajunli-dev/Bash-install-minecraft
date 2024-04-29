@@ -34,7 +34,7 @@ function install_with_apt() {
     
     # Remove installed dependencies
     if [ "$package" = "autoremove" ]; then
-        for package in "gdebi wget" "make" "curl"; do
+        for package in "gdebi" "wget" "make" "curl"; do
             sudo apt remove "$package" -y || handle_error "Failed to remove $package"
             echo "Removed $package"  
         done
@@ -62,40 +62,49 @@ function install_package() {
                 echo "Directory exists."
             else
                 echo "Directory does not exist creating: $minecraft_dir."
-                mkdir "$minecraft_dir"
+                mkdir "$minecraft_dir" 
+                if [ -d "$minecraft_dir" ]; then
+                    echo "Directory successfully created."
+                else
+                    handle_error "Failed to create directory: $minecraft_dir"
+                fi
             fi
+            
             
             # Check if the file exists, if not download it
             if [ -f "$minecraft_dir/minecraft.deb" ]; then
-                echo "Minecraft.deb is already downloaded"
-                exit 1
+                handle_error "Minecraft is already downloaded"
             else 
                 local minecraft_url="$MINECRAFT_URL"
                 local minecraft_file="$minecraft_dir/minecraft.deb"
-                sudo curl -o "$minecraft_file" "$minecraft_url" || handle_error "Failed to download Minecraft"
+                sudo curl -o "$minecraft_file" "$minecraft_url" || handle_error "Failed to download Minecraft" "minecraft"
             fi
 
             # Install Minecraft
-            sudo gdebi -n "$INSTALL_DIR/minecraft/minecraft.deb" || handle_error "Failed to install Minecraft"
+            sudo gdebi -n "$INSTALL_DIR/minecraft/minecraft.deb" || handle_error "Failed to install Minecraft" "minecraft"
             ;;
         "SPIGOTSERVER")          
             # Check if the directory exists, if not create it
             local spigot_dir="${INSTALL_DIR}/server"
-            if [ -d "/path/to/your/directory" ]; then
+            if [ -d "$spigot_dir" ]; then
                 echo "Directory exists."
             else
                 echo "Directory does not exist creating: $spigot_dir."
                 mkdir "$spigot_dir"
+                if [ -d "$spigot_dir" ]; then
+                    echo "Directory successfully created."
+                else
+                    handle_error "Failed to create directory: $spigot_dir"
+                fi
             fi
 
             # Check if the file exists, if not download it
             if [ -f "$spigot_dir/spigot.jar" ]; then
-                echo "spigot.jar is already downloaded"
-                exit 1
+                handle_error "Spigot.jar is already downloaded"
             else
                 local spigot_url="$BUILDTOOLS_URL"
                 local spigot_file="$spigot_dir/BuildTools.jar"
-                sudo curl -o "$spigot_file" "$spigot_url" || handle_error "Failed to download Spigot"
+                sudo curl -o "$spigot_file" "$spigot_url" || handle_error "Failed to download Spigot" "spigot"
             fi
 
             # Copy spigotstart.sh to the server directory and provide execute permission
@@ -104,11 +113,11 @@ function install_package() {
 
             # Build spigotserver
             cd "$INSTALL_DIR/server" || handle_error "Failed to change directory to spigotserver"
-            sudo java -jar BuildTools.jar || handle_error "Failed to build spigotserver"
+            sudo java -jar BuildTools.jar || handle_error "Failed to build spigotserver" "spigot"
             mv spigot-*.jar spigot.jar || handle_error "Failed to move spigot.jar"
 
             # Run it for the first time and set eula to true
-            java -jar /tmp/apps/server/spigot.jar || handle_error "Failed to first start spigotserver"
+            java -jar /tmp/apps/server/spigot.jar || handle_error "Failed to first start spigotserver" "spigot"
             echo "eula=true" > eula.txt          
             ;;
     esac
@@ -190,6 +199,13 @@ function handle_error() {
 
     # Print a specific error message
     echo "Error: $1"
+
+    local rollback=$2
+    if [ "$rollback" = "minecraft" ]; then
+        echo "Second argument matches 'Minecraft'"
+    elif [ "$rollback" = "spigot" ]; then
+        echo "Second argument matches 'Spigot'"
+    fi
     
     # Exit this function with an integer value!=0
     exit 1
@@ -272,23 +288,20 @@ function uninstall_minecraft {
             echo "Minecraft folder has been uninstalled"
         fi
         
+        launcherdir=$(find / -type d -name ".minecraft" 2>/dev/null)
+        #deleting minecraft (not using minecraft-launcher --clean, it doesn't work)
+        rm -vr $launcherdir
+
+        #the following line is used to delete the launcher (again, because --clean doesn't work)
+        if ! sudo apt -y remove minecraft-launcher
+        then
+            handle_error "deleting minecraft has failed"
+        else
+            echo "minecraft has succesfully been deleted"
+        fi       
     else
-        handle_error "Minecraft folder doesn't exist"
+        echo "Minecraft folder doesn't exist"
     fi
-
-    launcherdir=$(find / -type d -name ".minecraft" 2>/dev/null)
-     #deleting minecraft (not using minecraft-launcher --clean, it doesn't work)
-    rm -vr $launcherdir
-
-    #the following line is used to delete the launcher (again, because --clean doesn't work)
-    if ! sudo apt remove minecraft-launcher
-    then
-        handle_error "deleting minecraft has failed"
-    else
-        echo "minecraft has succesfully been deleted"
-    fi
-    # TODO if something goes wrong then call function handle_error
-
 }
 
 # TODO complete the implementation of this function
@@ -304,7 +317,7 @@ function uninstall_spigotserver {
         uninstall_spigotservice || handle_error "Failed to uninstall spigot service"
         echo "Spigot server and spigot service have been removed successfully"
     else
-        handle_error "Server directory does not exist"
+        echo "Server directory does not exist."
     fi 
 }
 
@@ -364,6 +377,10 @@ function test_minecraft() {
         # use the kill signal only if minecraft canNOT be stopped normally
 
     #starting minecraft in the background (otherwise script won't continue)
+    if [ ! -d "$INSTALL_DIR/minecraft" ]; then
+        handle_error "Minecraft is not installed"
+    fi
+    
     minecraft-launcher &
 
     #use pgrep to find the oldest (-o) process related to minecraft (minecraft-launcher)
@@ -398,6 +415,10 @@ function test_minecraft() {
 function test_spigotserver() {
     # Do NOT remove next line!
     echo "function test_spigotserver"    
+
+    if [ ! -d "$INSTALL_DIR/server" ]; then
+        handle_error "Spigot server is not installed"
+    fi
 
     # Install netcat as a tool to check if the server is running
     sudo apt install netcat -y || handle_error "Failed to install netcat"
