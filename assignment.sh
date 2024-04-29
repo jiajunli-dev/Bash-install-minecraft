@@ -57,7 +57,7 @@ function install_package() {
     case "$package" in
         "MINECRAFT")
             # Check if the directory exists, if not create it
-            local minecraft_dir="${INSTALL_DIR}/minecraft"
+            local minecraft_dir="$INSTALL_DIR/minecraft"
             if [ -d "$minecraft_dir" ]; then
                 echo "Directory exists."
             else
@@ -85,7 +85,7 @@ function install_package() {
             ;;
         "SPIGOTSERVER")          
             # Check if the directory exists, if not create it
-            local spigot_dir="${INSTALL_DIR}/server"
+            local spigot_dir="$INSTALL_DIR/server"
             if [ -d "$spigot_dir" ]; then
                 echo "Directory exists."
             else
